@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+results.csv
+TSB-AD-U/
+*.egg-info/
+build/
+.pytest_cache/

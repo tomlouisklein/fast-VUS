@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fast-vus"
+version = "0.1.0"
+description = "Exact, vectorised VUS-PR for time-series anomaly detection"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.9"
+dependencies = ["numpy"]
+
+[project.optional-dependencies]
+tsb = ["TSB-AD"]
+test = ["pytest"]
+
+[project.urls]
+Repository = "https://github.com/tomlouisklein/fast-VUS"
+
+[tool.setuptools]
+py-modules = ["fast_vus"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

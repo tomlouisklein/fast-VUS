@@ -36,11 +36,18 @@ surface: the mean of the range-based AUC-PR over all thresholds and all buffer l
 
 ## Implementation details
 
-For each buffer length and each of the 250 thresholds, VUS-PR needs a precision and a recall. The reference computes them in nested Python loops over buffer lengths, thresholds and anomaly segments.
+For each window buffer length, the [TSB-AD](https://github.com/TheDatumOrg/TSB-AD/blob/main/TSB_AD/evaluation/basic_metrics.py) implementation of VUS-PR (`RangeAUC_volume_opt`) loops over 250 anomaly score thresholds, and for each threshold over all anomaly segments. This threshold loop is the bottleneck.
 
-At a given threshold, every quantity in precision and recall is a sum over the points whose score clears that threshold. These are the true positives, the soft labels around each anomaly, and the count of detected anomaly events. So fast-VUS sorts the points by score once, from highest to lowest. A running sum (np.cumsum) over that order then holds the sum for every threshold at the same time: the value at position k is the sum over the k highest-scoring points.
+I noticed that TSB-AD computes AUC-PR with [scikit-learn's `average_precision_score`](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.average_precision_score.html), while its VUS-PR is a basic for-loop over thresholds and segments.
 
-This removes the loops over thresholds and segments. Only the loop over buffer lengths (0 to `window`) remains, and it only touches the points within `window/2` of an anomaly. All other points have zero label weight.
+The [scikit-learn implementation](https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/metrics/_ranking.py) (`_binary_clf_curve`) uses a simple trick to vectorize this:
+1. Sort the points by score, highest first.
+2. Take a cumulative sum ([`np.cumsum`](https://numpy.org/doc/stable/reference/generated/numpy.cumsum.html)) over that order. It holds the sum for every threshold at once.
+3. Read one entry per threshold. [`np.searchsorted`](https://numpy.org/doc/stable/reference/generated/numpy.searchsorted.html) gives the position.
+
+This implementation does the same for VUS-PR.
+
+Note that the innovation of VUS over AUC, the loop over all window buffer lengths (creating a surface) remains unchanged.
 
 `vus_pr(label, score, window)` equals TSB-AD's `generate_curve(label, score, window, 'opt', 250)[-1]`.
 

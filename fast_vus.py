@@ -16,6 +16,7 @@ def _merge(s, e, h, n):
 
 
 def _cover(s, e, n):
+    # mark every point inside [s, e]: +1 at each start, -1 after each end, cumsum > 0
     c = np.zeros(n + 1, int)
     c[s] += 1
     c[e + 1] -= 1
@@ -73,14 +74,19 @@ def vus_pr(label, score, window, thre=250):
     pos = np.full(n, -1)
     pos[region] = np.arange(len(region))
     xr, yr = x[region], y[region].astype(float)
+
+    # 1. sort: highest score first, so the points above any threshold are a prefix
     order = np.argsort(-xr, kind="stable")
+
+    # 3. read: prefix length per threshold; the sum of the first cnt points sits at cnt - 1
     cnt = len(xr) - np.searchsorted(np.sort(xr), th)
     at = np.maximum(cnt - 1, 0)
 
-    # sum of point weights above every threshold: one cumsum
+    # 2. cumsum: sum of point weights above every threshold at once
     def above(w):
         return np.where(cnt > 0, np.cumsum(w[order])[at], 0.0)
-
+    
+    # labelled anomaly points above each threshold; same for every buffer length
     B = above(yr)
     ap = np.empty(window + 1)
     for l in range(window + 1):
@@ -93,10 +99,14 @@ def vus_pr(label, score, window, thre=250):
         # existence: merged segments whose max score clears the threshold
         ms, me = _merge(s, e, l // 2, n)
         seg_max = np.maximum.reduceat(np.where(_cover(ms, me, n), x, -np.inf), ms)
+
+        # same counting as cnt, over segment maxima instead of points (no cumsum needed)
         hit = len(ms) - np.searchsorted(np.sort(seg_max), th)
 
         # range pr curve and its AP
         tp = B + A
+        
+        # range recall as in TSB-AD: P_new = (P + N_labels) / 2 = P + A/2
         tpr = np.minimum(tp / (P + A / 2), 1) * hit / len(ms)
         ap[l] = np.diff(tpr, prepend=0) @ (tp / n_pred)
     return float(ap.mean())
